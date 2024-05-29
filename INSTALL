@@ -403,7 +403,12 @@ be used to build Score-P are as follows:
                automatically. This disables it by request and fails
                if support cannot be satisfied but was requested.
   --disable-llvm-plugin
-               Disable support for the LLVM plug-in
+               Disable support for the LLVM IR plug-in
+               instrumentation. Default is to determine support
+               automatically. This disables it by request and fails
+               if support cannot be satisfied but was requested.
+  --disable-xray-plugin
+               Disable support for the LLVM XRay plug-in
                instrumentation. Default is to determine support
                automatically. This disables it by request and fails
                if support cannot be satisfied but was requested.
