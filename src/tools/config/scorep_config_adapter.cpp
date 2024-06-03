@@ -331,14 +331,15 @@ SCOREP_Config_CompilerAdapter::checkArgument( const std::string& arg )
 
 #if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_GCC_PLUGIN ) || \
     HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_VT_INTEL ) || \
-    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN )
+    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN ) || \
+    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
     /* Catch any compiler plug-in args */
     if ( arg.substr( 0, 15 ) == "--compiler-arg=" )
     {
         m_cflags += arg.substr( 15 ) + " ";
         return true;
     }
-#endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_{GCC_PLUGIN,VT_INTEL,LLVM_PLUGIN} ) */
+#endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_{GCC_PLUGIN,VT_INTEL,LLVM_PLUGIN,XRAY_PLUGIN} ) */
 #endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION )*/
 
     return false;
@@ -360,6 +361,9 @@ SCOREP_Config_CompilerAdapter::addCFlags( std::string&           cflags,
     bool        llvm_plugin_instrumentation_available = false;
     std::string llvm_compiler_backend_flag_arg;
 #endif
+#if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
+    bool xray_plugin_instrumentation_available = false;
+#endif
 
     switch ( language )
     {
@@ -372,7 +376,9 @@ SCOREP_Config_CompilerAdapter::addCFlags( std::string&           cflags,
 #elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_CC_LLVM_PLUGIN )
             llvm_plugin_instrumentation_available = true;
             llvm_compiler_backend_flag_arg        = SCOREP_LLVM_PLUGIN_COMPILER_BACKEND_FLAG_CC;
-#endif  /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CC_[...]) */
+#elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_CC_XRAY_PLUGIN )
+            xray_plugin_instrumentation_available = true;
+#endif /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CC_[...]) */
             break;
         case SCOREP_CONFIG_LANGUAGE_CXX:
             cflags += SCOREP_COMPILER_INSTRUMENTATION_CXXFLAGS;
@@ -383,7 +389,9 @@ SCOREP_Config_CompilerAdapter::addCFlags( std::string&           cflags,
 #elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_CXX_LLVM_PLUGIN )
             llvm_plugin_instrumentation_available = true;
             llvm_compiler_backend_flag_arg        = SCOREP_LLVM_PLUGIN_COMPILER_BACKEND_FLAG_CXX;
-#endif  /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CXX_[...]) */
+#elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_CXX_XRAY_PLUGIN )
+            xray_plugin_instrumentation_available = true;
+#endif /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CXX_[...]) */
             break;
         case SCOREP_CONFIG_LANGUAGE_FORTRAN:
             cflags += SCOREP_COMPILER_INSTRUMENTATION_FCFLAGS;
@@ -394,7 +402,9 @@ SCOREP_Config_CompilerAdapter::addCFlags( std::string&           cflags,
 #elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_FC_LLVM_PLUGIN )
             llvm_plugin_instrumentation_available = true;
             llvm_compiler_backend_flag_arg        = SCOREP_LLVM_PLUGIN_COMPILER_BACKEND_FLAG_FC;
-#endif  /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_FC_[...]) */
+#elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_FC_XRAY_PLUGIN )
+            xray_plugin_instrumentation_available = true;
+#endif /* HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_FC_[...]) */
             break;
         default:
             break;
@@ -439,6 +449,25 @@ SCOREP_Config_CompilerAdapter::addCFlags( std::string&           cflags,
         cflags += m_cflags;
     }
 #endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN ) */
+#if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
+    if ( xray_plugin_instrumentation_available )
+    {
+        // TODO!: Determine useful threshold
+        // TODO!: Allow selection of threshold (check m_cflags?)?
+        cflags += " -fxray-instrument -fxray-instruction-threshold=1 ";
+        if ( build_check )
+        {
+            extern std::string path_to_binary;
+            //cflags += "-rpath " + path_to_binary + "../build-xray-plugin/" LT_OBJDIR "scorep_instrument_function_xray.so -g ";
+            //cflags += "-l" + path_to_binary + "../build-xray-plugin/" LT_OBJDIR "scorep_instrument_function_xray.so -g ";
+        }
+        else
+        {
+            //cflags += "-rpath " SCOREP_PKGLIBDIR "/scorep_instrument_function_xray.so -g ";
+        }
+        cflags += m_cflags;
+    }
+#endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN ) */
 }
 
 void
@@ -446,6 +475,11 @@ SCOREP_Config_CompilerAdapter::addLdFlags( std::string& ldflags,
                                            bool /* build_check */,
                                            bool         nvcc )
 {
+#if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
+    ldflags += " -rpath " SCOREP_PKGLIBDIR;
+    ldflags += " -fxray-instrument ";
+    ldflags += SCOREP_PKGLIBDIR "/scorep_instrument_function_xray.so -g ";
+#endif /* HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN ) */
     if ( nvcc )
     {
         ldflags += " " SCOREP_COMPILER_INSTRUMENTATION_LDFLAGS;

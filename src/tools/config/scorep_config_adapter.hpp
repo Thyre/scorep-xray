@@ -27,7 +27,7 @@
 
 #include <string>
 #include <deque>
-#include <set>
+   #include <set>
 #include <vector>
 #include <iostream>
 #include <stdint.h>
@@ -300,7 +300,8 @@ public:
 
 #if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_GCC_PLUGIN ) || \
     HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_VT_INTEL ) || \
-    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN )
+    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN ) || \
+    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
 private:
     /** Any additional cflags */
     std::string m_cflags;
