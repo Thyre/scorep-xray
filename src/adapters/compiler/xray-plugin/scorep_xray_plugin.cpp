@@ -18,9 +18,12 @@
 
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
+#include "SCOREP_Types.h"
 #include <llvm/XRay/InstrumentationMap.h>
 
-
+// TODO!: XRayFuncMetadata is obsolete by now, region info mapping suffices, remove
+// TODO!: Memory management for region infos
+// TODO!: Check structures, array instead of map?
 static std::unordered_map<int32_t, XRayPlugin::XRayFuncMetadata> functionMap;
 
 /**
@@ -54,23 +57,20 @@ buildFunctionMap( std::string& execFileName ) XRAY_INSTRUMENT_NEVER
             auto                            maybeFuncInfo = symbolizer.symbolizeCode( execFileName, sectAddress );
             if ( auto err = maybeFuncInfo.takeError() )
             {
-                UTILS_WARN_ONCE( "Could not get symbol for XRay instrumented function %i @addr: %lu: %s",
-                                 funcId, funcAddr, toString( std::move( err ) ).c_str() );
-                std::cout << "Could not get symbol for XRay instrumented function" << funcId << " @ " <<
-                    funcAddr << " err: " << toString( std::move( err ) ).c_str() << std::endl;
-                idMap.insert( { funcId, XRayPlugin::XRayFuncMetadata( funcId, funcAddr, nullptr ) } );
+                UTILS_BUG( "Could not get symbol for XRay instrumented function %i @addr: %lu: %s",
+                           funcId, funcAddr, toString( std::move( err ) ).c_str() );
             }
             else
             {
                 std::string funcNameMangled = maybeFuncInfo.get().FunctionName;
                 // TODO!: Check why mangled = demangled
                 std::string funcNameDemangled = llvm::demangle( funcNameMangled );
-                //TODO!: Check whether path must be simplified
-                std::string sourceFile = maybeFuncInfo.get().FileName;     // "Source" is unreliable, use FileName
-                idMap.insert( { funcId,
-                                XRayPlugin::XRayFuncMetadata( funcId, funcAddr, funcNameMangled, funcNameDemangled,
-                                                              sourceFile, maybeFuncInfo.get().StartLine,
-                                                              maybeFuncInfo.get().Line ) } );
+                // Path needn't be cleaned as it is convention to provide filenames with "*/"
+                std::string sourceFile = maybeFuncInfo.get().FileName; // "Source" is unreliable, use FileName
+                auto        regionInfo = XRayPlugin::createRegionDesc( funcNameMangled, funcNameDemangled,
+                                                                       sourceFile, maybeFuncInfo.get().StartLine,
+                                                                       maybeFuncInfo.get().Line );
+                idMap.emplace( funcId, XRayPlugin::XRayFuncMetadata( funcId, funcAddr, regionInfo ) );
 #if SCOREP_XRAY_DEBUG
                 std::cout << "XRay instrumented: " << funcId << " @" << funcAddr << ": " << "\n\tdemangled: "
                           << funcNameDemangled << "\n\tname: " << funcNameMangled << "\n\tlineStart: "
@@ -82,33 +82,43 @@ buildFunctionMap( std::string& execFileName ) XRAY_INSTRUMENT_NEVER
     return idMap;
 }
 
-bool
-shouldInstrumentFunction( XRayPlugin::XRayFuncMetadata& funcMetadata ) XRAY_INSTRUMENT_NEVER
+
+/**
+ * Checks whether a XRay instrumented function's sleds should be patched or unpatched
+ * This is done by checking if the functions region description was marked as filtered by the score-p runtime
+ * The region must have been registered beforehand or the handle will not be set correctly
+ * @param funcMetadata Metadata of scorep-p REGISTERED xray-instrumented function
+ * @return true if functions sleds should be patched, false if runtime filtered this function out (unpatch)
+ */
+inline bool
+shouldPatchFunction( XRayPlugin::XRayFuncMetadata& funcMetadata ) XRAY_INSTRUMENT_NEVER
 {
-    return true;
-    // TODO!: Support filtering
+    uint32_t handle = *funcMetadata.regionDescription->handle;
+    return ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
 }
 
 
 /**
  * @return true on success, false otherwise
- *
  */
 bool
-patchAndRegister() XRAY_INSTRUMENT_NEVER
+registerAndPatch() XRAY_INSTRUMENT_NEVER
 {
     bool successStatus = true;
     for ( const auto& entry: functionMap )
     {
         XRayPatchingStatus status;
         auto               funcMetadata = entry.second;
-        if ( shouldInstrumentFunction( funcMetadata ) )
+        // Register region to init measurement and apply filter rules to region - let score-p do the filter work
+        scorep_plugin_register_region( funcMetadata.regionDescription );
+        if ( shouldPatchFunction( funcMetadata ) )
         {
+            //std::cout << "Patching function " << funcMetadata.xRayFuncId << std::endl; //TODO!:
             status = __xray_patch_function( entry.first );
-            scorep_plugin_register_region( funcMetadata.regionDescription );
         }
         else
         {
+            //std::cout << "UNPatching function " << funcMetadata.xRayFuncId << std::endl; //TODO!:
             status = __xray_unpatch_function( entry.first );
         }
         if ( status != XRayPatchingStatus::SUCCESS )
@@ -145,8 +155,7 @@ handleInstrumentationPoint( int32_t fid, XRayEntryType entryType ) XRAY_INSTRUME
 SCOREP_ErrorCode
 XRayPlugin::initXRay() XRAY_INSTRUMENT_NEVER
 {
-    std::cout << "Xray active!" << std::endl;
-    __xray_init();     // Safe even if it is already initialized
+    __xray_init(); // Safe even if it is already initialized
     bool success = __xray_set_handler( &handleInstrumentationPoint );
     if ( !success )
     {
@@ -157,7 +166,7 @@ XRayPlugin::initXRay() XRAY_INSTRUMENT_NEVER
     bool        execNameIsFile;
     std::string fileName = SCOREP_GetExecutableName( &execNameIsFile );
     functionMap = buildFunctionMap( fileName );
-    patchAndRegister();
+    registerAndPatch();
 
     return SCOREP_ErrorCode::SCOREP_SUCCESS;
 }
