@@ -175,16 +175,13 @@ write_tcollect_file_rules( void*       userData,
 void
 addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine )
 {
+    // TODO!: Determine if/how instrument filter should be supported
     // Pass config values to xray plugin by using Macro definition compiler flags
-    if ( cmdLine.getVerbosity() >= 2 )
-    {
-        flags += " --compiler-arg= -DSCOREP_XRAY_DEBUG ";
-    }
     const std::vector<std::string>& filter_files = cmdLine.getInstrumentFilterFiles();
     // Generate semicolon separated list of filter files
     std::ostringstream oss;
     bool               firstFile = true;
-    for ( const auto& filter_file : filter_files )  //TODO!: Determine C++11?
+    for ( const auto& filter_file : filter_files )
     {
         if ( !firstFile )
         {
@@ -198,7 +195,6 @@ addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine )
     {
         flags += " --compiler-arg=-DSCOREP_XRAY_FILTER_FILES="  + files  + " ";
     }
-    //flags += " --compiler-arg=-DSCOREP_XRAY_INSTRUMENTED"; // TODO!: Only needed when multiple plugins compiled at same time
 }
 #endif // HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CC_XRAY_PLUGIN)
 
