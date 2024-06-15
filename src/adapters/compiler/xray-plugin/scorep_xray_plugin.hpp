@@ -47,7 +47,7 @@ struct XRayFuncMetadata
  * Creates a new, trivially copy-able scorep region description on the heap that can be referenced after passed
  * values go out of scope. Make sure to free contents once it is no longer needed.
  */
-scorep_compiler_region_description*
+scorep_compiler_region_description
 createRegionDesc( std::string& funcNameMangled,
                   std::string& funcNameDemangled,
                   std::string& sourceFile, const uint32_t startLine, const uint32_t endLine )
@@ -61,17 +61,16 @@ createRegionDesc( std::string& funcNameMangled,
     auto file          = strdup( sourceFile.c_str() );
     // Handle is modified during lifetime, so it too must be persistent somewhere, but also requires pointer
     // and per-region access. Therefore, push it onto heap per created region info.
-    auto heapHandle        = new uint32_t( SCOREP_INVALID_REGION );
-    auto regionDescription = new scorep_compiler_region_description {
-        heapHandle,         //region is reset in register call, init with unknown region
-        nameDemangled,
-        nameMangled,
-        file,
-        static_cast<int>( startLine ),
-        static_cast<int>( endLine ),
-        0
+    auto heapHandle = new uint32_t( SCOREP_INVALID_REGION );
+    return scorep_compiler_region_description {
+               heapHandle,  //region is reset in register call, init with unknown region
+               nameDemangled,
+               nameMangled,
+               file,
+               static_cast<int>( startLine ),
+               static_cast<int>( endLine ),
+               0
     };
-    return regionDescription;
 }
 
 
