@@ -12,14 +12,13 @@
 #define XRAY_INSTRUMENT_NEVER __attribute__( ( xray_never_instrument ) )
 #define XRAY_INSTRUMENT_ALWAYS __attribute__( ( xray_always_instrument ) )
 
-#include <config.h>
-#include <SCOREP_ErrorCodes.h>
-#include <string>
-
 extern "C" {
+#include <config.h>
 #include "scorep_compiler_plugin.h"
+#include <SCOREP_ErrorCodes.h>
 }
 
+#include <string>
 #include <unordered_map>
 #include <cinttypes>
 #include <xray/xray_interface.h>
@@ -81,6 +80,9 @@ createRegionDesc( std::string& funcNameMangled,
  */
 SCOREP_ErrorCode
 initXRay() XRAY_INSTRUMENT_NEVER;
+
+void
+cleanupXRay() XRAY_INSTRUMENT_NEVER;
 };
 
 #endif
