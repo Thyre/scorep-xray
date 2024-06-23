@@ -42,7 +42,7 @@ FilterConverter::readInFile()
     }
     else
     {
-        std::cerr << "Unable to open instrument filter file!" << std::endl;
+        UTILS_WARNING( "Unable to open instrument filter file!" );
         return false;
     }
 }
@@ -59,7 +59,7 @@ FilterConverter::writeFile( std::string& outFilePath, std::string& content )
     }
     else
     {
-        std::cerr << "Unable to write instrument filter file!" << std::endl;
+        UTILS_WARNING( "Unable to write instrument filter file!" );
         return false;
     }
 }
@@ -70,8 +70,9 @@ FilterConverter::determineInputFormat()
     bool xray   = false;
     bool scorep = false;
     // Keywords to look out for that will determine the file type
-    std::vector<std::string> formatKeysScoreP = { "SCOREP_FILE_NAMES_BEGIN", "SCOREP_REGION_NAMES_BEGIN", "INCLUDE", "EXCLUDE", "MANGLED" };
-    std::vector<std::string> formatKeysXRay   = { "[always]", "[never]" };
+    std::vector<std::string> formatKeysScoreP = { "SCOREP_FILE_NAMES_BEGIN", "SCOREP_REGION_NAMES_BEGIN", "INCLUDE",
+                                                  "EXCLUDE",                 "MANGLED" };
+    std::vector<std::string> formatKeysXRay = { "[always]", "[never]" };
 
     // tokenize
     std::vector<std::string> tokens;
@@ -83,7 +84,7 @@ FilterConverter::determineInputFormat()
     }
 
     // Search for scorep keywords in input file
-    for ( const auto& substr : formatKeysScoreP )
+    for ( const auto& substr: formatKeysScoreP )
     {
         if ( std::find( tokens.begin(), tokens.end(), substr ) != tokens.end() )
         {
@@ -92,7 +93,7 @@ FilterConverter::determineInputFormat()
         }
     }
     // Now search for xray words to make sure
-    for ( const auto& substr : formatKeysXRay )
+    for ( const auto& substr: formatKeysXRay )
     {
         if ( std::find( tokens.begin(), tokens.end(), substr ) != tokens.end() )
         {
@@ -109,8 +110,8 @@ FilterConverter::determineInputFormat()
     }
     else
     {
-        std::cerr << "Could not determine format of instrumentation filter file. "
-            "Make sure your syntax is correct." << std::endl;
+        UTILS_WARNING( "Could not determine format of instrumentation filter file. "
+                       "Make sure your syntax is correct." );
         return false;
     }
 }
@@ -127,7 +128,7 @@ FilterConverter::saveAsScorep( std::string& outFilePath )
     {
         return writeFile( outFilePath, inFileContent );
     }
-    std::cerr << "Converting XRay Filter files to ScoreP filter is not supported!" << std::endl;
+    UTILS_WARNING( "Converting XRay Filter files to ScoreP filter is not supported!" );
     return false;
 }
 
@@ -164,13 +165,13 @@ FilterConverter::parseFilter()
     filter = SCOREP_Filter_New();
     if ( !filter )
     {
-        std::cerr << "Could not alloc instrumentation filter!" << std::endl;
+        UTILS_WARNING( "Could not alloc instrumentation filter!" );
         return false;
     }
     SCOREP_ErrorCode result = SCOREP_Filter_ParseFile( filter, inFilePath.c_str() );
     if ( result != SCOREP_SUCCESS )
     {
-        std::cerr << "Could not read or parse instrumentation filter file!" << std::endl;
+        UTILS_WARNING( "Could not read or parse instrumentation filter file!" );
         return false;
     }
     return true;
@@ -180,10 +181,9 @@ bool
 FilterConverter::convertToXRay()
 {
     // TODO!: Determine whether implementing this is adequate, meet with seb
-    std::string notice( "Note that XRay will instrument explicitly included functions that are excluded by "
-                        " a file filter. The behaviour therefore differs from Score-P filters.\nConsider using"
-                        "--no-xray-delete-converted-filter and then edit the xray filter to your needs manually." );
-    std::cout << notice << std::endl;
+    UTILS_WARN_ONCE( "Note that XRay will instrument explicitly included functions that are excluded by a file "
+                     " filter. The behaviour therefore differs from Score-P filters.\nConsider using"
+                     " --no-xray-delete-converted-filter and then edit the xray filter to your needs manually." );
     std::stringstream xrayOutAlways;
     std::stringstream xrayOutNever;
     std::stringstream xrayInfo;
