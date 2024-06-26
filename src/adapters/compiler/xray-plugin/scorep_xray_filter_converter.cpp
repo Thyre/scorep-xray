@@ -1,14 +1,9 @@
-//
-// Created by paul on 6/19/24.
-//
-
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <utility>
 #include <vector>
 #include <regex>
-#include <cstring>
 
 #include "scorep_xray_filter_converter.hpp"
 #include "scorep_filter_matching.h"
@@ -180,10 +175,16 @@ FilterConverter::parseFilter()
 bool
 FilterConverter::convertToXRay()
 {
-    // TODO!: Determine whether implementing this is adequate, meet with seb
-    UTILS_WARN_ONCE( "Note that XRay will instrument explicitly included functions that are excluded by a file "
-                     " filter. The behaviour therefore differs from Score-P filters.\nConsider using"
-                     " --no-xray-delete-converted-filter and then edit the xray filter to your needs manually." );
+    UTILS_WARNING( "Note that converting Score-P filters to XRay filters XRay is currently only supported on a "
+                   "very basic level. The behaviour therefore differs from Score-P filters in many aspects.\n"
+                   " Consider using --no-xray-delete-converted-filter and then edit the xray filter to your needs"
+                   " manually.\n Differences include:\n"
+                   "\t(!) Regions and Files are included if they match a single inclusion filter, regardless of"
+                   " an exclusion filter matching the file/region\n"
+                   "\t(!) Demangled names are not properly recognized by XRay!\n"
+                   "Therefore, be wary of using \"*\" without any further specification in your INCLUDE sections, as"
+                   " that will effectively disable all exclusion filters! Furthermore, consider using mangled names."
+                   "\nNote that runtime filtering is not affected by these restrictions." );
     std::stringstream xrayOutAlways;
     std::stringstream xrayOutNever;
     std::stringstream xrayInfo;
@@ -192,14 +193,9 @@ FilterConverter::convertToXRay()
     xrayOutAlways << "[always]" << std::endl;
     xrayOutNever << "[never]" << std::endl;
 
-    scorep_filter_rule_t* fileRule        = filter->file_rules;
-    bool                  sawStarRuleFile = false;
+    scorep_filter_rule_t* fileRule = filter->file_rules;
     while ( fileRule != nullptr )
     {
-        if ( strcmp( fileRule->pattern, "*" ) == 0 )
-        {
-            sawStarRuleFile = true;
-        }
         if ( fileRule->is_exclude )
         {
             xrayOutNever << "src:" << fileRule->pattern << std::endl;
@@ -210,17 +206,9 @@ FilterConverter::convertToXRay()
         }
         fileRule = fileRule->next;
     }
-    if ( !sawStarRuleFile )
-    {
-        // ScoreP docs 5.3.1: All files and regions included per default
-        // To achieve better similarity between Scorep and XRay filters, the default case is handled by explicitly
-        // emitting a "*" to include all other files by default
-        xrayOutAlways << "src:*" << std::endl;
-    }
 
-    scorep_filter_rule_t* regionRule        = filter->function_rules;
-    bool                  emittedWarning    = false; // Only emit warning to xray file once
-    bool                  sawStarRuleRegion = false;
+    scorep_filter_rule_t* regionRule     = filter->function_rules;
+    bool                  emittedWarning = false; // Only emit warning to xray file once
     while ( regionRule != nullptr )
     {
         if ( !regionRule->is_mangled && !emittedWarning )
@@ -231,10 +219,6 @@ FilterConverter::convertToXRay()
             xrayInfo << "# " << warn << std::endl;
             emittedWarning = true;
         }
-        if ( strcmp( regionRule->pattern, "*" ) == 0 )
-        {
-            sawStarRuleRegion = true;
-        }
         if ( regionRule->is_exclude )
         {
             xrayOutNever << "fun:" << regionRule->pattern << std::endl;
@@ -244,12 +228,6 @@ FilterConverter::convertToXRay()
             xrayOutAlways << "fun:" << regionRule->pattern << std::endl;
         }
         regionRule = regionRule->next;
-    }
-    if ( !sawStarRuleRegion )
-    {
-        // To ensure similar behaviour in Scorep and XRay filters, the default case is handled by explicitly
-        // emitting a "*" to include all other files by default
-        xrayOutAlways << "fun:*" << std::endl;
     }
 
     convertedXrayContent = xrayInfo.str() + xrayOutAlways.str() + xrayOutNever.str();
