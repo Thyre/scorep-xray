@@ -208,7 +208,7 @@ addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine, XRayPlug
     {
         // If the scorep executable is copied, or scorep called via path without install, the default filter files
         // won't be where they are expected => Write the filters to disk now (and delete them after instrumentation)
-        std::string   defaultFilterName( "scorep_xray_filter_no_internals.txt" );
+        std::string   defaultFilterName( "scorep_xray_filter_no_internals_" + create_random_string() + ".txt" );
         std::ofstream defaultFilter( defaultFilterName );
         if ( !defaultFilter.is_open() )
         {
@@ -235,7 +235,7 @@ addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine, XRayPlug
         for ( const std::string& filter_file : filter_files )
         {
             XRayPlugin::FilterConverter conv( filter_file );
-            std::string                 outPath( filter_file + ".scorep_xray_autoconvert.txt" );
+            std::string                 outPath( filter_file + ".scorep_xray_autoconvert_" + create_random_string() + ".txt" );
             bool                        success = conv.saveAsXRay( outPath );
             if ( !success )
             {
