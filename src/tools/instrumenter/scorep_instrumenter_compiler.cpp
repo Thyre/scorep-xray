@@ -31,7 +31,9 @@
 #include <SCOREP_Filter.h>
 
 #if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
+
 #include "scorep_xray_filter_converter.hpp"
+
 #endif
 
 #include <iostream>
@@ -45,10 +47,9 @@
 #include <UTILS_IO.h>
 
 #if HAVE( POSIX_PIPES )
+
 static void
-scorep_get_ibm_compiler_version( const std::string& compiler,
-                                 int&               major,
-                                 int&               minor )
+scorep_get_ibm_compiler_version( const std::string& compiler, int& major, int& minor )
 {
     FILE*       console;
     char        version_string[ 64 ];
@@ -80,6 +81,7 @@ scorep_get_ibm_compiler_version( const std::string& compiler,
     }
     minor = atoi( token );
 }
+
 #endif
 
 /* **************************************************************************************
@@ -129,8 +131,11 @@ SCOREP_Instrumenter_CompilerAdapter::printHelp( void )
         "  --xray-plugin-arg=<string>\n"
         "\t\t\t\t  Add additional arguments for the XRay plugin.\n"
         "\t\t\t\t  Provided arguments will be passed to compiler during the compilation step.\n"
-        "\t\t\t\t  Default flags will still be applied to XRay plugin, additional arguments come after."
-              << std::endl;
+        "\t\t\t\t  Default flags will still be applied to XRay plugin, additional arguments come after.\n"
+        "  --no-xray-compile-with-debug"
+        "\t\t\t\t  Disables insertion of -g flag during instrumentation / at compile time\n"
+        "\t\t\t\t  Disabling debug information might cause issues with filtering ar runtime because source\n"
+        "\t\t\t\t  files of functions might not be known." << std::endl;
 #endif
 }
 
@@ -142,9 +147,9 @@ SCOREP_Instrumenter_CompilerAdapter::supportInstrumentFilters( void ) const
     // instrumentation methods and the language not available here, be pragmatic
     // and return true if any of the configured instrumentation methods supports
     // filtering.
-#if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_GCC_PLUGIN )  || \
+#if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_GCC_PLUGIN ) || \
     HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_LLVM_PLUGIN ) || \
-    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_VT_INTEL )    || \
+    HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_VT_INTEL ) || \
     HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
     return true;
 #else
@@ -203,31 +208,6 @@ addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine, XRayPlug
 {
     flags += " --compiler-arg=-fxray-instruction-threshold=" + std::to_string( xrayConfig.instructionThreshold );
 
-    // Make default instrumentation filter available
-    if ( xrayConfig.useDefaultInstrumentFilter )
-    {
-        // If the scorep executable is copied, or scorep called via path without install, the default filter files
-        // won't be where they are expected => Write the filters to disk now (and delete them after instrumentation)
-        std::string   defaultFilterName( "scorep_xray_filter_no_internals_" + create_random_string() + ".txt" );
-        std::ofstream defaultFilter( defaultFilterName );
-        if ( !defaultFilter.is_open() )
-        {
-            UTILS_BUG( "Could not open file to write default instrumentation filter into current working directory!" );
-        }
-        defaultFilter << XRayPlugin::Filters::NO_INTERNALS;
-        defaultFilter.close();
-        if ( !defaultFilter.good() )
-        {
-            UTILS_BUG( "Could not write default instrumentation filter into current working directory!" );
-        }
-        flags += " --compiler-arg=-fxray-attr-list=";
-        flags += defaultFilterName;
-        if ( xrayConfig.deleteInstrumentFilterAfterCompile )
-        {
-            cmdLine.addTempFile( defaultFilterName );
-        }
-    }
-
     // Now check for user instrument filters
     const std::vector<std::string>& filter_files = cmdLine.getInstrumentFilterFiles();
     if ( !filter_files.empty() )
@@ -251,12 +231,44 @@ addXrayFlags( std::string& flags, SCOREP_Instrumenter_CmdLine& cmdLine, XRayPlug
         }
     }
 
+    // Make default instrumentation filter available
+    if ( xrayConfig.useDefaultInstrumentFilter )
+    {
+        // If the scorep executable is copied, or scorep called via path without install, the default filter files
+        // won't be where they are expected => Write the filters to disk now (and delete them after instrumentation)
+        std::string   defaultFilterName( "scorep_xray_filter_no_internals" + create_random_string() + ".txt" );
+        std::ofstream defaultFilter( defaultFilterName );
+        if ( !defaultFilter.is_open() )
+        {
+            UTILS_BUG( "Could not open file to write default instrumentation filter into current working directory!" );
+        }
+        defaultFilter << XRayPlugin::Filters::NO_INTERNALS;
+        defaultFilter.close();
+        if ( !defaultFilter.good() )
+        {
+            UTILS_BUG( "Could not write default instrumentation filter into current working directory!" );
+        }
+        flags += " --compiler-arg=-fxray-attr-list=";
+        flags += defaultFilterName;
+        if ( xrayConfig.deleteInstrumentFilterAfterCompile )
+        {
+            cmdLine.addTempFile( defaultFilterName );
+        }
+    }
+
+    if ( xrayConfig.compileWithDebug )
+    {
+        // Pass -g to get crucial debug info such as source file of a function
+        flags += " --compiler-arg=-g";
+    }
+
     // optionally provided user args
     for ( const std::string& arg : userArgs )
     {
         flags += " --compiler-arg=" + arg;
     }
 }
+
 #endif // HAVE_BACKEND(SCOREP_COMPILER_INSTRUMENTATION_CC_XRAY_PLUGIN)
 
 std::string
@@ -454,12 +466,22 @@ SCOREP_Instrumenter_CompilerAdapter::checkOption( const std::string& arg )
         }
         if ( arg.substr( 0, 29 ) == "--xray-instruction-threshold=" )
         {
-            xrayConfig.instructionThreshold = std::stoi( arg.substr( 22, std::string::npos ) );
+            xrayConfig.instructionThreshold = std::stoi( arg.substr( 29, std::string::npos ) );
             return true;
         }
         if ( arg.substr( 0, 18 ) == "--xray-plugin-arg=" )
         {
             m_xray_plugin_args.push_back( arg.substr( 18, std::string::npos ) );
+            return true;
+        }
+        if ( arg == "--xray-compile-with-debug" ) // Default
+        {
+            xrayConfig.compileWithDebug = true;
+            return true;
+        }
+        if ( arg == "--no-xray-compile-with-debug" )
+        {
+            xrayConfig.compileWithDebug = false;
             return true;
         }
     }
@@ -468,8 +490,7 @@ SCOREP_Instrumenter_CompilerAdapter::checkOption( const std::string& arg )
 }
 
 void
-SCOREP_Instrumenter_CompilerAdapter::prelink( SCOREP_Instrumenter&         instrumenter,
-                                              SCOREP_Instrumenter_CmdLine& cmdLine )
+SCOREP_Instrumenter_CompilerAdapter::prelink( SCOREP_Instrumenter& instrumenter, SCOREP_Instrumenter_CmdLine& cmdLine )
 {
 #if HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_PLUGIN ) && !HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_XRAY_PLUGIN )
     if ( !cmdLine.isTargetSharedLib() )

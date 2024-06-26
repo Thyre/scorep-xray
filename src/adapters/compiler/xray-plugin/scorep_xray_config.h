@@ -12,6 +12,7 @@ struct Config
     bool useDefaultInstrumentFilter { true };
     bool deleteInstrumentFilterAfterCompile { true };
     int  instructionThreshold { 1 };
+    bool compileWithDebug { true };
 };
 
 namespace Filters
