@@ -33,8 +33,6 @@ static std::vector<scorep_compiler_region_description>* regions;
 // Array of only the region handles for each region for more cache friendliness
 static std::vector<uint32_t>* regionHandles;
 
-static int* xrayInitSuccess;
-
 /**
  * Creates a new, trivially copy-able scorep region description on the heap that can be referenced after passed
  * values go out of scope. Make sure to free contents once it is no longer needed.
@@ -109,11 +107,12 @@ buildRegionsForExecutable( std::string& execFileName ) XRAY_INSTRUMENT_NEVER
                                                        maybeFuncInfo.get().StartLine, maybeFuncInfo.get().Line );
             ( *regions )[ funcId - 1 ] = regionInfo;  // XrayIDs start at 1
             // Do not set regionHandles yet as they are still subject to change
-#ifdef SCOREP_XRAY_DEBUG
-            std::cout << "XRay instrumented: " << funcId << " @" << funcAddr << ": " << "\n\tname: " <<
-                funcNameMangled << "\n\tdemangled: " << funcNameDemangled << "\n\tlineStart: "
-                      << maybeFuncInfo.get().StartLine << "\n\tfile: " << sourceFile << std::endl;
-#endif
+            if ( SCOREP_Env_RunVerbose() )
+            {
+                std::cout << "XRay instrumented: " << funcId << " @" << funcAddr << ": " << "\n\tname: "
+                          << funcNameMangled << "\n\tdemangled: " << funcNameDemangled << "\n\tlineStart: "
+                          << maybeFuncInfo.get().StartLine << "\n\tfile: " << sourceFile << std::endl;
+            }
         }
     }
     return true;
@@ -139,13 +138,18 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
         uint32_t handle = *( *regions )[ i ].handle;
         ( *regionHandles )[ i ] = handle;
         // Check if handle corresponds to filtered value or if registering failed
-        if ( ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION ) )
+        bool shouldPatch = ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
+        if ( shouldPatch )
         {
             status = __xray_patch_function( i + 1 );    // XrayIDs start at 1
         }
         else
         {
             status = __xray_unpatch_function( i + 1 );   // XrayIDs start at 1
+        }
+        if ( SCOREP_Env_RunVerbose() )
+        {
+            std::cout << "XRay fid " << i + 1 << " was " << ( shouldPatch ? "patched" : "unpatched" ) << std::endl;
         }
         if ( status != XRayPatchingStatus::SUCCESS )
         {
@@ -165,21 +169,21 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
 static void
 handleInstrumentationPoint( int32_t fid, XRayEntryType entryType ) XRAY_INSTRUMENT_NEVER
 {
-    if ( entryType == XRayEntryType::ENTRY )
+    switch ( entryType )
     {
-        scorep_plugin_enter_region( ( *regionHandles )[ fid - 1 ] );
-    }
-    else if ( entryType == XRayEntryType::EXIT )
-    {
-        scorep_plugin_exit_region( ( *regionHandles )[ fid - 1 ] );
-    }
-    else if ( entryType == XRayEntryType::TAIL )
-    {
-        // TODO!: Ignore tail type for now as this will be the function vector destruction
-    }
-    else
-    {
-        UTILS_WARN_ONCE( "Unhandled Xray sled event %u for fid %i", entryType, fid );
+        case XRayEntryType::ENTRY:
+            scorep_plugin_enter_region( ( *regionHandles )[ fid - 1 ] );
+            break;
+        case XRayEntryType::EXIT:
+            scorep_plugin_exit_region( ( *regionHandles )[ fid - 1 ] );
+            break;
+        case XRayEntryType::TAIL:
+            UTILS_WARN_ONCE( "TAIL CALL!" );                            //TODO!: Remove
+            scorep_plugin_exit_region( ( *regionHandles )[ fid - 1 ] ); //TODO!: Tail call?
+            scorep_plugin_enter_region( ( *regionHandles )[ fid - 1 ] );
+            break;
+        default:
+            UTILS_WARN_ONCE( "Unhandled Xray sled event %u for fid %i", entryType, fid );
     }
 }
 
@@ -211,8 +215,8 @@ initXRay() XRAY_INSTRUMENT_NEVER
     if ( regionsAvailable )
     {
         // XRay will throw errors if no function was actually instrumented
-        xrayInitSuccess = new int( __xray_set_handler( &handleInstrumentationPoint ) );
-        if ( !( *xrayInitSuccess ) )
+        int xrayInitSuccess = __xray_set_handler( &handleInstrumentationPoint );
+        if ( !xrayInitSuccess )
         {
             // TODO!: Handle 'spurious calls' as per docs?
             UTILS_ERROR( SCOREP_ERROR_XRAY_INIT, "Could not set XRay handler function!" );
@@ -229,7 +233,7 @@ initXRay() XRAY_INSTRUMENT_NEVER
  * @param unpatch Whether to unpatch all sleds for a clean state
  */
 static void
-cleanupXRay( bool unpatch ) XRAY_INSTRUMENT_NEVER
+cleanupXRay() XRAY_INSTRUMENT_NEVER
 {
     if ( regions )
     {
@@ -238,16 +242,15 @@ cleanupXRay( bool unpatch ) XRAY_INSTRUMENT_NEVER
             free( ( void* )region.name );
             free( ( void* )region.file );
             free( ( void* )region.canonical_name );
+            delete region.handle;
         }
         ( *regions ).clear();
+        delete regions;
     }
     if ( regionHandles )
     {
         ( *regionHandles ).clear();
-    }
-    if ( unpatch && xrayInitSuccess )
-    {
-        __xray_unpatch();
+        delete regionHandles;
     }
 }
 }
@@ -259,7 +262,7 @@ initXRayPlugin() XRAY_INSTRUMENT_NEVER
 }
 
 void
-finalizeXRayPlugin( int doUnpatching ) XRAY_INSTRUMENT_NEVER
+finalizeXRayPlugin() XRAY_INSTRUMENT_NEVER
 {
-    XRayPlugin::cleanupXRay( doUnpatching );
+    XRayPlugin::cleanupXRay();
 }
