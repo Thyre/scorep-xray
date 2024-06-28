@@ -382,7 +382,7 @@ SCOREP_Instrumenter_CompilerAdapter::getConfigToolFlag( SCOREP_Instrumenter_CmdL
         FILTER_LLVM_PLUGIN
         OPTIONS_LLVM_PLUGIN
 #elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_CC_XRAY_PLUGIN )
-        addXrayFlags( flags, cmdLine );
+        addXrayFlags( flags, cmdLine, xrayConfig, m_xray_plugin_args );
 #endif
     }
     else if ( is_cpp_file( inputFile ) )
@@ -408,7 +408,7 @@ SCOREP_Instrumenter_CompilerAdapter::getConfigToolFlag( SCOREP_Instrumenter_CmdL
         FILTER_LLVM_PLUGIN
         OPTIONS_LLVM_PLUGIN
 #elif HAVE_BACKEND( SCOREP_COMPILER_INSTRUMENTATION_FC_XRAY_PLUGIN )
-        addXrayFlags( flags, cmdLine );
+        addXrayFlags( flags, cmdLine, xrayConfig, m_xray_plugin_args );
 #endif  /* SCOREP_BACKEND_COMPILER_FC_INTEL */
     }
     else if ( is_cuda_file( inputFile ) )
