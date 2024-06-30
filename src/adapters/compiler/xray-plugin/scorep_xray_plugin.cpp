@@ -107,7 +107,7 @@ buildRegionsForExecutable( std::string& execFileName ) XRAY_INSTRUMENT_NEVER
             // Do not set regionHandles yet as they are still subject to change
             if ( SCOREP_Env_RunVerbose() )
             {
-                std::cout << "XRay instrumented: " << funcId << " @" << funcAddr << ": " << "\n\tname: "
+                std::cerr << "XRay instrumented: " << funcId << " @" << funcAddr << ": " << "\n\tname: "
                           << funcNameMangled << "\n\tdemangled: " << funcNameDemangled << "\n\tlineStart: "
                           << maybeFuncInfo.get().StartLine << "\n\tfile: " << sourceFile << std::endl;
             }
@@ -147,7 +147,7 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
         }
         if ( SCOREP_Env_RunVerbose() )
         {
-            std::cout << "XRay fid " << i + 1 << " was " << ( shouldPatch ? "patched" : "unpatched" ) << std::endl;
+            std::cerr << "XRay fid " << i + 1 << " was " << ( shouldPatch ? "patched" : "unpatched" ) << std::endl;
         }
         if ( status != XRayPatchingStatus::SUCCESS )
         {
