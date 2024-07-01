@@ -28,8 +28,6 @@ namespace XRayPlugin
 // Array of region_descriptions for all XRay instrumented functions
 static std::vector<scorep_compiler_region_description>* regions;
 
-// Array of only the region handles for each region for more cache friendliness
-static std::vector<uint32_t>* regionHandles;
 
 /**
  * Creates a new, trivially copy-able scorep region description on the heap that can be referenced after passed
@@ -126,17 +124,14 @@ static bool
 registerAndPatch() XRAY_INSTRUMENT_NEVER
 {
     bool successStatus = true;
-    regionHandles = new std::vector<uint32_t>( ( *regions ).size() );
     for ( int i = 0; i < ( *regions ).size(); i++ )
     {
         XRayPatchingStatus status;
         // Register region to init measurement and apply filter rules to region - let score-p do the filter work
         scorep_compiler_plugin_register_region( &( *regions )[ i ] );
-        // Registering also updated the region handle to its final value, they can now be cached
-        uint32_t handle = *( *regions )[ i ].handle;
-        ( *regionHandles )[ i ] = handle;
         // Check if handle corresponds to filtered value or if registering failed
-        bool shouldPatch = ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
+        uint32_t handle      = *( *regions )[ i ].handle;
+        bool     shouldPatch = ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
         if ( shouldPatch )
         {
             status = __xray_patch_function( i + 1 );    // XrayIDs start at 1
@@ -159,6 +154,22 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
 }
 
 /**
+ * @return A vector containing only the dereferenced region handles for all provided regions
+ */
+static inline std::vector<uint32_t>
+copyRegionHandles( std::vector<scorep_compiler_region_description>* regiondescs )
+{
+    std::vector<uint32_t> regionHandles( ( *regiondescs ).size() );
+    for ( int i = 0; i < ( *regiondescs ).size(); i++ )
+    {
+        // Registering also updated the region handle to its final value, they can now be cached
+        uint32_t handle = *( *regiondescs )[ i ].handle;
+        regionHandles[ i ] = handle;
+    }
+    return regionHandles;
+}
+
+/**
  * Handler for patched XRay sleds. When called by XRay, it calls the measurement code with the corresponding
  * region handle to measure the region
  * @param fid XRay id of function
@@ -167,14 +178,17 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
 static void
 handleInstrumentationPoint( int32_t fid, XRayEntryType entryType ) XRAY_INSTRUMENT_NEVER
 {
+    // Array of only the region handles for each region for more cache friendliness
+    // Static const in function was measured to be faster than global dereferencing
+    static const std::vector<uint32_t> regionHandles = copyRegionHandles( regions );
     switch ( entryType )
     {
         case XRayEntryType::ENTRY:
-            scorep_plugin_enter_region( ( *regionHandles )[ fid - 1 ] );
+            scorep_plugin_enter_region( regionHandles[ fid - 1 ] );
             break;
         case XRayEntryType::TAIL:
         case XRayEntryType::EXIT:
-            scorep_plugin_exit_region( ( *regionHandles )[ fid - 1 ] );
+            scorep_plugin_exit_region( regionHandles[ fid - 1 ] );
             break;
         default:
             UTILS_WARN_ONCE( "Unhandled Xray sled event %u for fid %i", entryType, fid );
@@ -240,11 +254,6 @@ cleanupXRay() XRAY_INSTRUMENT_NEVER
         }
         ( *regions ).clear();
         delete regions;
-    }
-    if ( regionHandles )
-    {
-        ( *regionHandles ).clear();
-        delete regionHandles;
     }
 }
 }
