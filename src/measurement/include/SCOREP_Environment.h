@@ -40,7 +40,7 @@
 #define SCOREP_INTERNAL_ENVIRONMENT_H
 
 #include <config.h> // Include for UTILS_BEGIN_C_DECLS
-#include <stdbool.h>
+#include   <stdbool.h>
 #include <stdint.h>
 
 UTILS_BEGIN_C_DECLS
@@ -107,6 +107,12 @@ SCOREP_Env_DoUnwinding( void );
  */
 bool
 SCOREP_Env_DoForceCfgFiles( void );
+
+#if HAVE( XRAY_PLUGIN_SUPPORT )
+bool
+SCOREP_Env_XRayDefaultFilterActive( void );
+
+#endif
 
 UTILS_END_C_DECLS
 
