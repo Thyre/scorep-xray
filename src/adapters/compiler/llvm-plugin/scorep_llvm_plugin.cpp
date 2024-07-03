@@ -26,6 +26,8 @@
 #include <llvm/Support/SHA1.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
+#include <config-llvm-plugin.h>
+#include <scorep_compiler_plugin.h>
 
 #if HAVE( LLVM_DEMANGLE )
 #include <llvm/Demangle/Demangle.h>
@@ -54,7 +56,7 @@ cl::opt<bool>SCOREP::Compiler::LLVMPlugin::EnableExceptionHandling( "scorep-plug
 std::string
 SCOREP::Compiler::LLVMPlugin::StringToSHA1( const StringRef& string )
 {
-    auto sha1 = SHA1();
+    auto sha1 =   SHA1();
     sha1.init();
     sha1.update( string );
     auto hash = sha1.result();
@@ -141,64 +143,7 @@ SCOREP::Compiler::LLVMPlugin::FunctionIsInstrumentable( Function&      F,
     }
 
     // Check against function names we NEVER want to instrument
-    return
-        ( strncmp( basename.c_str(), "POMP", 4 ) != 0 )
-        && ( strncmp( basename.c_str(), "Pomp", 4 ) != 0 )
-        && ( strncmp( basename.c_str(), "pomp", 4 ) != 0 )
-        && ( strncmp( basename.c_str(), "SCOREP_", 7 ) != 0 )
-        && ( strncmp( basename.c_str(), "scorep_", 7 ) != 0 )
-        && ( strncmp( basename.c_str(), "OTF2_", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "otf2_", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "cube_", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "cubew_", 6 ) != 0 )
-        && ( strncmp( basename.c_str(), ".omp", 4 ) != 0 )
-        && ( !strstr( basename.c_str(), "DIR.OMP." ) )
-        && ( !strstr( basename.c_str(), ".extracted" ) )
-        #if HAVE( SCOREP_COMPILER_CC_INTEL_ONEAPI ) || HAVE( SCOREP_COMPILER_CXX_INTEL_ONEAPI ) || HAVE( SCOREP_COMPILER_FC_INTEL_ONEAPI )
-        && ( !strstr( basename.c_str(), "_tree_reduce_" ) )
-        #endif  /* Intel oneAPI compiler */
-        && ( strncmp( basename.c_str(), "..omp", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "__omp", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "..acc", 5 ) != 0 )
-        && ( strncmp( basename.c_str(), "virtual thunk", 13 ) != 0 )
-        && ( strncmp( basename.c_str(), "non-virtual thunk", 17 ) != 0 )
-        && ( !strstr( basename.c_str(), "Kokkos::Tools" ) )
-        && ( !strstr( basename.c_str(), "Kokkos::Profiling" ) )
-        && ( !strstr( basename.c_str(), "6Kokkos5Tools" ) )
-        && ( !strstr( basename.c_str(), "6Kokkos9Profiling" ) )
-
-        // Newly added filters needed for LLVM plugin functions
-        // Basic C++
-        && ( strncmp( basename.c_str(), "_GLOBAL__", 9 ) != 0 )
-        && ( strncmp( basename.c_str(), "__gnu_cxx::", 11 ) != 0 )
-        && ( strncmp( basename.c_str(), "__cxx_", 6 ) != 0 )
-        && ( strncmp( basename.c_str(), "std::", 5 ) != 0 )
-        // OpenMP
-        && ( strncmp( "__clang_", basename.c_str(), 8 ) != 0 )
-        && ( fnmatch( "omp*$omp*$*", basename.c_str(), 0 ) != 0 )
-        && ( fnmatch( "*.omp_outlined*", F.getName().str().c_str(), 0 ) != 0 )
-        && ( fnmatch( "*.omp_outlined_debug__*", F.getName().str().c_str(), 0 ) != 0 )
-        // __kmp* are LLVM internal runtime functions
-        && ( strncmp( basename.c_str(), "__kmp", 5 ) != 0 )
-        && ( !strstr( basename.c_str(), "_omp$" ) )
-        && ( strncmp( basename.c_str(), "ompx::", 6 ) != 0 )
-        && ( strncmp( basename.c_str(), "__keep_alive", 10 ) != 0 )
-        && ( strncmp( basename.c_str(), "__assert_fail", 13 ) != 0 )
-        && ( !strstr( basename.c_str(), "__internal_trig_" ) )
-        && ( !strstr( basename.c_str(), "thread-local wrapper routine" ) )
-        && ( !strstr( basename.c_str(), "(anonymous namespace)::invokeMicrotask" ) )
-        && ( strncmp( basename.c_str(), ".red_init.", 10 ) != 0 )
-        && ( strncmp( basename.c_str(), ".red_comb.", 10 ) != 0 )
-        && ( !strstr( basename.c_str(), "..omp_par" ) )
-        // MPI
-        && ( strncmp( basename.c_str(), "MPI::", 5 ) != 0 )
-        // CUDA
-        && ( !strstr( basename.c_str(), "__device_stub__" ) )
-        && ( fnmatch( "__cuda*", basename.c_str(), 0 ) != 0 )
-        && ( fnmatch( "_*_nv_*", basename.c_str(), 0 ) != 0 )
-        && ( fnmatch( "__sti_*cuda*", basename.c_str(), 0 ) != 0 )
-        // HIP
-        && ( fnmatch( "__hip*", basename.c_str(), 0 ) != 0 );
+    return mayInstrument( basename.c_str(), F.getName().str().c_str() );
 }
 
 bool

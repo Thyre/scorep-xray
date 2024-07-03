@@ -126,12 +126,26 @@ registerAndPatch() XRAY_INSTRUMENT_NEVER
     bool successStatus = true;
     for ( int i = 0; i < ( *regions ).size(); i++ )
     {
-        XRayPatchingStatus status;
-        // Register region to init measurement and apply filter rules to region - let score-p do the filter work
-        scorep_compiler_plugin_register_region( &( *regions )[ i ] );
-        // Check if handle corresponds to filtered value or if registering failed
-        uint32_t handle      = *( *regions )[ i ].handle;
-        bool     shouldPatch = ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
+        XRayPatchingStatus                  status;
+        scorep_compiler_region_description& region      = ( *regions )[ i ];
+        bool                                shouldPatch = true;
+        if ( SCOREP_Env_XRayDefaultFilterActive() )
+        {
+            // Check default filter like in LLVM function. Default handle is INVALID_REGION anyway
+            shouldPatch = mayInstrument( region.name, region.canonical_name );
+        }
+        // Don't register functions with scorep if they are filtered by the default filter, as they would
+        // receive a valid region handle and show up in score summary
+        if ( shouldPatch )
+        {
+            // Function should potentially be patched. Register region to init measurement and apply filter rules
+            // to region - let score-p do the filter work and then check again
+            scorep_compiler_plugin_register_region( &region );
+            // Copy handles before filter check as they need to be aligned with XRay IDs
+            uint32_t handle = *region.handle;
+            // Check if handle corresponds to filtered value or if registering failed
+            shouldPatch = ( handle != SCOREP_FILTERED_REGION ) && ( handle != SCOREP_INVALID_REGION );
+        }
         if ( shouldPatch )
         {
             status = __xray_patch_function( i + 1 );    // XrayIDs start at 1
@@ -226,7 +240,6 @@ initXRay() XRAY_INSTRUMENT_NEVER
         int xrayInitSuccess = __xray_set_handler( &handleInstrumentationPoint );
         if ( !xrayInitSuccess )
         {
-            // TODO!: Handle 'spurious calls' as per docs?
             UTILS_ERROR( SCOREP_ERROR_XRAY_INIT, "Could not set XRay handler function!" );
             return SCOREP_ErrorCode::SCOREP_ERROR_XRAY_INIT;
         }
