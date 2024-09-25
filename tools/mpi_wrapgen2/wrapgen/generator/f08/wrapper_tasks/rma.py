@@ -601,7 +601,7 @@ class TaskEpochEnd(F08Task):
 
     @staticmethod
     def dependencies() -> Set[Type['F08Task']]:
-        return {TaskWinHandleAtExit, TaskRmaRequestForeachOnWindow}
+        return {TaskWinHandleAtExit}
 
     def needs_parameter_names(self) -> Scope[str]:
         return self.make_parameter_name_mapping('win')
@@ -626,8 +626,6 @@ class TaskWinTest(F08Task):
     def generate_exit_if_group_active(self) -> GeneratorOutput:
         yield f'''\
 if ({self.ipn.flag}) then
-    call scorep_mpi_rma_request_foreach_on_window( {self.ln.local_win_handle}, &
-                                                   c_funloc(scorep_mpi_rma_request_write_standard_completion) )
     call SCOREP_RmaGroupSync( ior(SCOREP_RMA_SYNC_LEVEL_MEMORY,SCOREP_RMA_SYNC_LEVEL_PROCESS), &
                               {self.ln.local_win_handle}, &
                               scorep_mpi_epoch_get_group_handle( {self.ipn.win}, SCOREP_MPI_RMA_EXPOSURE_EPOCH ) )

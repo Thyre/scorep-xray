@@ -535,7 +535,7 @@ class TaskEpochEnd(CTask):
 
     @staticmethod
     def dependencies() -> Set[Type['CTask']]:
-        return {TaskWinHandleAtExit, TaskRmaRequestForeachOnWindow}
+        return {TaskWinHandleAtExit}
 
     def needs_parameter_names(self) -> Scope[str]:
         return self.make_parameter_name_mapping('win')
@@ -561,9 +561,6 @@ class TaskWinTest(CTask):
         yield f'''\
 if ( *{self.ipn.flag} != 0 )
 {{
-    scorep_mpi_rma_request_foreach_on_window( {self.ln.local_win_handle},
-                                              scorep_mpi_rma_request_write_standard_completion );
-
     SCOREP_RmaGroupSync( SCOREP_RMA_SYNC_LEVEL_MEMORY | SCOREP_RMA_SYNC_LEVEL_PROCESS,
                          {self.ln.local_win_handle},
                          scorep_mpi_epoch_get_group_handle( {self.ipn.win}, SCOREP_MPI_RMA_EXPOSURE_EPOCH ) );
