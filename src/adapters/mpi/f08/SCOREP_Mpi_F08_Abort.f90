@@ -31,6 +31,9 @@ subroutine MPI_Init_thread_f08(required, provided, ierror)
     integer, intent(in) :: required
     integer, intent(out) :: provided
     integer, optional, intent(out) :: ierror
+
+    provided = 0
+
     write (*, *) "[Score-P] Support for 'USE mpi_f08' is disabled in", &
         " this Score-P installation."
     write (*, *) "          Please view 'scorep.summary' for details. "
