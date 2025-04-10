@@ -6852,12 +6852,6 @@
         "tasks": [
             {
                 "attributes": {
-                    "callback": "scorep_mpi_rma_request_write_standard_completion_and_remove"
-                },
-                "typename": "TaskRmaRequestForeachOnWindow"
-            },
-            {
-                "attributes": {
                     "epoch_type": "exposure"
                 },
                 "typename": "TaskEpochEnd"

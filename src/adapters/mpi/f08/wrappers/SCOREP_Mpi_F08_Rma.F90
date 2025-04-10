@@ -5005,8 +5005,6 @@ subroutine SCOREP_F08_SYMBOL_NAME_MPI_WIN_TEST( &
         if (event_gen_active_for_group) then
             local_win_handle = scorep_mpi_win_handle(win)
             if (flag) then
-                call scorep_mpi_rma_request_foreach_on_window(local_win_handle, &
-                                                              c_funloc(scorep_mpi_rma_request_write_standard_completion))
                 call SCOREP_RmaGroupSync(ior(SCOREP_RMA_SYNC_LEVEL_MEMORY, SCOREP_RMA_SYNC_LEVEL_PROCESS), &
                                          local_win_handle, &
                                          scorep_mpi_epoch_get_group_handle(win, SCOREP_MPI_RMA_EXPOSURE_EPOCH))
@@ -5245,8 +5243,6 @@ subroutine SCOREP_F08_SYMBOL_NAME_MPI_WIN_WAIT( &
     if (event_gen_active) then
         if (event_gen_active_for_group) then
             local_win_handle = scorep_mpi_win_handle(win)
-            call scorep_mpi_rma_request_foreach_on_window(local_win_handle, &
-                                                          c_funloc(scorep_mpi_rma_request_write_standard_completion_and_remove))
             call SCOREP_RmaGroupSync(ior(SCOREP_RMA_SYNC_LEVEL_MEMORY, SCOREP_RMA_SYNC_LEVEL_PROCESS), &
                                      local_win_handle, &
                                      scorep_mpi_epoch_get_group_handle(win, SCOREP_MPI_RMA_EXPOSURE_EPOCH))

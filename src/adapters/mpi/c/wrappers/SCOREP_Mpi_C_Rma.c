@@ -13,7 +13,7 @@
  * Copyright (c) 2009-2013,
  * University of Oregon, Eugene, USA
  *
- * Copyright (c) 2009-2019, 2025,
+ * Copyright (c) 2009-2019, 2024-2025,
  * Forschungszentrum Juelich GmbH, Germany
  *
  * Copyright (c) 2009-2014,
@@ -2812,9 +2812,6 @@ MPI_Win_test( MPI_Win win,
         {
             if ( *flag != 0 )
             {
-                scorep_mpi_rma_request_foreach_on_window( scorep_mpi_win_handle( win ),
-                                                          scorep_mpi_rma_request_write_standard_completion );
-
                 SCOREP_RmaGroupSync( SCOREP_RMA_SYNC_LEVEL_MEMORY |
                                      SCOREP_RMA_SYNC_LEVEL_PROCESS,
                                      scorep_mpi_win_handle( win ),
@@ -3026,9 +3023,6 @@ MPI_Win_wait( MPI_Win win )
     {
         if ( event_gen_active_for_group )
         {
-            scorep_mpi_rma_request_foreach_on_window( scorep_mpi_win_handle( win ),
-                                                      scorep_mpi_rma_request_write_standard_completion_and_remove );
-
             SCOREP_RmaGroupSync( SCOREP_RMA_SYNC_LEVEL_MEMORY |
                                  SCOREP_RMA_SYNC_LEVEL_PROCESS,
                                  scorep_mpi_win_handle( win ),
