@@ -1,5 +1,13 @@
 ------------------- Upcoming version 10.0 ----------------------------
 
+------------------- Upcoming version 9.1 -----------------------------
+
+Compatibility:
+
+- Added configure check to disable MPIF08 support for Intel MPI,
+  if it detects a known error in the Intel MPI library. See
+  OPEN_ISSUES for more information.
+
 ------------------- Released version 9.0 -----------------------------
 
 Major features:

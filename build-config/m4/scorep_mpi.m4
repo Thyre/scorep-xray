@@ -461,6 +461,24 @@ AC_LINK_IFELSE(AC_LANG_SOURCE([[program pmpi_funcs
 end program]]), [], [scorep_mpi_usempif08_supported="no, MPI library does not provide all required PMPI procedures"])
 fi
 
+# Test for Intel MPI bug with Fortran 2008 bindings. See
+# https://community.intel.com/t5/Intel-MPI-Library/MPI-f08-with-polymorphic-argument-CLASS/m-p/1590421
+if test x"$scorep_mpi_usempif08_supported" = xyes; then
+AC_COMPILE_IFELSE(AC_LANG_SOURCE([[subroutine test(baz, dtype)
+    use mpi_f08
+    implicit none
+
+    ! Subroutine arguments
+    class(*) :: baz
+    type(MPI_Datatype) :: dtype
+
+    ! Local variables
+    type(MPI_Request) :: recvreq
+
+    call MPI_Irecv(baz, 1, dtype, 0, 0, MPI_COMM_SELF, recvreq)
+end subroutine test]]), [], [scorep_mpi_usempif08_supported="no, see OPEN_ISSUES for a workaround"])
+fi
+
 AC_MSG_RESULT([$scorep_mpi_usempif08_supported])
 ac_ext="${ac_ext_save}"
 AC_LANG_POP([Fortran])
